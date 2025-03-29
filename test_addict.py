@@ -614,6 +614,50 @@ class AbstractTestsClass(object):
         d.newKey = TEST_VAL
         self.assertEqual(d.newKey, TEST_VAL)
 
+    def test_pickle_with_freeze(self):
+        a = self.dict_class(TEST_DICT)
+        a.freeze()
+        data = pickle.dumps(a)
+        aa = pickle.loads(data)
+        self.assertEqual(a, aa)
+        with self.assertRaises(KeyError):
+            a.missing
+        with self.assertRaises(KeyError):
+            aa.missing
+
+    def test_copy_with_freeze(self):
+        class MyMutableObject(object):
+
+            def __init__(self):
+                self.attribute = None
+
+        foo = MyMutableObject()
+        foo.attribute = True
+
+        a = self.dict_class()
+        a.child.immutable = 42
+        a.child.mutable = foo
+        a.freeze()
+
+        b = a.copy()
+
+        # immutable object should not change
+        b.child.immutable = 21
+        self.assertEqual(a.child.immutable, 21)
+
+        # mutable object should change
+        b.child.mutable.attribute = False
+        self.assertEqual(a.child.mutable.attribute, b.child.mutable.attribute)
+
+        # changing child of b should not affect a
+        b.child = "new stuff"
+        self.assertTrue(isinstance(a.child, self.dict_class))
+
+        # b should be frozen
+        with self.assertRaises(KeyError):
+            b.missing
+
+
 class DictTests(unittest.TestCase, AbstractTestsClass):
     dict_class = Dict
 

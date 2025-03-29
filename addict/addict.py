@@ -4,9 +4,7 @@ import copy
 class Dict(dict):
 
     def __init__(__self, *args, **kwargs):
-        object.__setattr__(__self, '__parent', kwargs.pop('__parent', None))
-        object.__setattr__(__self, '__key', kwargs.pop('__key', None))
-        object.__setattr__(__self, '__frozen', False)
+        _set_state(__self, kwargs)
         for arg in args:
             if not arg:
                 continue
@@ -30,6 +28,10 @@ class Dict(dict):
             self[name] = value
 
     def __setitem__(self, name, value):
+        if name in _STATE_KEYS:
+            return
+        if not isinstance(value, Dict):
+            value = type(self)._hook(value)
         isFrozen = (hasattr(self, '__frozen') and
                     object.__getattribute__(self, '__frozen'))
         if isFrozen and name not in super(Dict, self).keys():
@@ -112,10 +114,12 @@ class Dict(dict):
         return tuple(self.items())
 
     def __getstate__(self):
-        return self
+        return self.to_dict(), _get_state(self, ['__frozen'])
 
     def __setstate__(self, state):
-        self.update(state)
+        kv, st = state
+        self.update(kv)
+        _set_state(self, st)
 
     def __or__(self, other):
         if not isinstance(other, (Dict, dict)):
@@ -140,7 +144,7 @@ class Dict(dict):
             return self[key]
         else:
             self[key] = default
-            return default
+            return self[key]
 
     def freeze(self, shouldFreeze=True):
         object.__setattr__(self, '__frozen', shouldFreeze)
@@ -161,3 +165,26 @@ def unwrap(value):
     elif isinstance(value, dict):
         return {k: unwrap(v) for k, v in value.items()}
     return value
+
+
+_STATE_KEYS = ['__parent', '__key', '__frozen']
+
+
+def _get_state(d: Dict, ks=None):
+    state = {}
+    for k in _STATE_KEYS:
+        if k not in ks:
+            continue
+        if not hasattr(d, k):
+            state[k] = None
+            continue
+        state[k] = object.__getattribute__(d, k)
+    return state
+
+
+def _set_state(d: Dict, state: dict):
+    for k in _STATE_KEYS:
+        if k not in state:
+            object.__setattr__(d, k, None)
+            continue
+        object.__setattr__(d, k, state[k])
