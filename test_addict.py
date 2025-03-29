@@ -566,11 +566,15 @@ class AbstractTestsClass(object):
         "Test that d.freeze() produces KeyError on d.missing."
         d = self.dict_class()
         self.assertEqual(d.missing, {})
+        self.assertEqual(d["missing"], {})
         d.freeze()
-        with self.assertRaises(KeyError):
+        with self.assertRaises(AttributeError):
             d.missing
+        with self.assertRaises(KeyError):
+            d["missing"]
         d.unfreeze()
         self.assertEqual(d.missing, {})
+        self.assertEqual(d["missing"], {})
 
     def test_top_freeze_against_nested_key(self):
         "Test that d.freeze() produces KeyError on d.inner.missing."
@@ -578,28 +582,42 @@ class AbstractTestsClass(object):
         d.inner.present = TEST_VAL
         self.assertIn("inner", d)
         self.assertEqual(d.inner.missing, {})
+        self.assertEqual(d.inner["missing"], {})
         d.freeze()
-        with self.assertRaises(KeyError):
+        with self.assertRaises(AttributeError):
             d.inner.missing
         with self.assertRaises(KeyError):
+            d.inner["missing"]
+        with self.assertRaises(AttributeError):
             d.missing
+        with self.assertRaises(KeyError):
+            d["missing"]
         d.unfreeze()
         self.assertEqual(d.inner.missing, {})
+        self.assertEqual(d.inner["missing"], {})
         self.assertEqual(d.missing, {})
+        self.assertEqual(d["missing"], {})
 
     def test_nested_freeze_against_top_level(self):
         "Test that d.inner.freeze() leaves top-level `d` unfrozen."
         d = self.dict_class()
         d.inner.present = TEST_VAL
         self.assertEqual(d.inner.present, TEST_VAL)
+        self.assertEqual(d.inner["present"], TEST_VAL)
         self.assertEqual(d.inner.missing, {})
+        self.assertEqual(d.inner["missing"], {})
         self.assertEqual(d.missing, {})
+        self.assertEqual(d["missing"], {})
         d.inner.freeze()
-        with self.assertRaises(KeyError):
+        with self.assertRaises(AttributeError):
             d.inner.missing             # d.inner is frozen
+        with self.assertRaises(KeyError):
+            d.inner["missing"]
         self.assertEqual(d.missing, {}) # but not `d` itself
+        self.assertEqual(d["missing"], {})
         d.inner.unfreeze()
         self.assertEqual(d.inner.missing, {})
+        self.assertEqual(d.inner["missing"], {})
 
     def test_top_freeze_disallows_new_key_addition(self):
         "Test that d.freeze() disallows adding new keys in d."
@@ -607,12 +625,15 @@ class AbstractTestsClass(object):
         d.freeze()
         d.oldKey = TEST_VAL         # Can set pre-existing key.
         self.assertEqual(d.oldKey, TEST_VAL)
-        with self.assertRaises(KeyError):
+        with self.assertRaises(AttributeError):
             d.newKey = TEST_VAL     # But can't add a new key.
+        with self.assertRaises(KeyError):
+            d["newKey"] = TEST_VAL
         self.assertNotIn("newKey", d)
         d.unfreeze()
         d.newKey = TEST_VAL
         self.assertEqual(d.newKey, TEST_VAL)
+        self.assertEqual(d["newKey"], TEST_VAL)
 
     def test_pickle_with_freeze(self):
         a = self.dict_class(TEST_DICT)
@@ -620,9 +641,9 @@ class AbstractTestsClass(object):
         data = pickle.dumps(a)
         aa = pickle.loads(data)
         self.assertEqual(a, aa)
-        with self.assertRaises(KeyError):
+        with self.assertRaises(AttributeError):
             a.missing
-        with self.assertRaises(KeyError):
+        with self.assertRaises(AttributeError):
             aa.missing
 
     def test_copy_with_freeze(self):
@@ -654,9 +675,61 @@ class AbstractTestsClass(object):
         self.assertTrue(isinstance(a.child, self.dict_class))
 
         # b should be frozen
-        with self.assertRaises(KeyError):
+        with self.assertRaises(AttributeError):
             b.missing
 
+    def test_getattr_when_top_freeze_against_top_key(self):
+        "Test that d.freeze() is compatible with getattr on d.missing."
+        d = self.dict_class()
+        self.assertEqual(getattr(d, "missing"), {})
+        self.assertEqual(getattr(d, "missing", TEST_VAL), {})
+        d.freeze()
+        with self.assertRaises(AttributeError):
+            getattr(d, "missing")
+        self.assertEqual(getattr(d, "missing", TEST_VAL), TEST_VAL)
+        d.unfreeze()
+        self.assertEqual(getattr(d, "missing"), {})
+        self.assertEqual(getattr(d, "missing", TEST_VAL), {})
+
+    def test_getattr_when_top_freeze_against_nested_key(self):
+        "Test that d.freeze() is compatible when getattr on d.inner.missing."
+        d = self.dict_class()
+        d.inner.present = TEST_VAL
+        self.assertIn("inner", d)
+        self.assertEqual(getattr(d.inner, "missing"), {})
+        self.assertEqual(getattr(d.inner, "missing", TEST_VAL), {})
+        d.freeze()
+        with self.assertRaises(AttributeError):
+            getattr(d.inner, "missing")
+        self.assertEqual(getattr(d.inner, "missing", TEST_VAL), TEST_VAL)
+        with self.assertRaises(AttributeError):
+            getattr(d, "missing")
+        self.assertEqual(getattr(d, "missing", TEST_VAL), TEST_VAL)
+        d.unfreeze()
+        self.assertEqual(getattr(d.inner, "missing"), {})
+        self.assertEqual(getattr(d.inner, "missing", TEST_VAL), {})
+        self.assertEqual(getattr(d, "missing"), {})
+        self.assertEqual(getattr(d, "missing", TEST_VAL), {})
+
+    def test_getattr_when_nested_freeze_against_top_level(self):
+        "Test that d.inner.freeze() leaves top-level `d` unfrozen."
+        d = self.dict_class()
+        d.inner.present = TEST_VAL
+        self.assertEqual(getattr(d.inner, "present"), TEST_VAL)
+        self.assertEqual(getattr(d.inner, "present", None), TEST_VAL)
+        self.assertEqual(getattr(d.inner, "missing"), {})
+        self.assertEqual(getattr(d.inner, "missing", TEST_VAL), {})
+        self.assertEqual(getattr(d, "missing"), {})
+        self.assertEqual(getattr(d, "missing", TEST_VAL), {})
+        d.inner.freeze()
+        with self.assertRaises(AttributeError):
+            getattr(d.inner, "missing")              # d.inner is frozen
+        self.assertEqual(getattr(d.inner, "missing", TEST_VAL), TEST_VAL)
+        self.assertEqual(getattr(d, "missing"), {})  # but not `d` itself
+        self.assertEqual(getattr(d, "missing", TEST_VAL), {})
+        d.inner.unfreeze()
+        self.assertEqual(getattr(d.inner, "missing"), {})
+        self.assertEqual(getattr(d.inner, "missing", TEST_VAL), {})
 
 class DictTests(unittest.TestCase, AbstractTestsClass):
     dict_class = Dict
