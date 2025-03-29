@@ -120,14 +120,14 @@ class Dict(dict):
     def __or__(self, other):
         if not isinstance(other, (Dict, dict)):
             return NotImplemented
-        new = Dict(self)
+        new = type(self)(self)
         new.update(other)
         return new
 
     def __ror__(self, other):
         if not isinstance(other, (Dict, dict)):
             return NotImplemented
-        new = Dict(other)
+        new = type(self)(other)
         new.update(self)
         return new
 

@@ -3,6 +3,7 @@ import copy
 import unittest
 import pickle
 from addict import Dict
+import typing
 
 
 # test whether unittests pass on child classes
@@ -18,7 +19,7 @@ TEST_DICT = {'a': {'b': {'c': TEST_VAL}}}
 
 
 class AbstractTestsClass(object):
-    dict_class = None
+    dict_class: typing.Type[Dict] = None
 
     def test_set_one_level_item(self):
         some_dict = {'a': TEST_VAL}
@@ -340,6 +341,30 @@ class AbstractTestsClass(object):
                      'child': {'a': 'a', 'c': 'c', 'b': 'b2'}}
 
         self.assertDictEqual(old, reference)
+
+    def test_inherited_functions(self):
+
+        class MyDict(self.dict_class):
+
+            def func1(self):
+                return self
+
+            @classmethod
+            def func2(cls):
+                return cls
+
+            @staticmethod
+            def func3():
+                return "func3"
+
+        a = MyDict()
+        b = MyDict()
+        c = a | b
+        self.assertIsNot(c, a)
+        self.assertIsNot(c, b)
+        self.assertEqual(c.func1(), c)
+        self.assertEqual(c.func2(), MyDict)
+        self.assertEqual(c.func3(), "func3")
 
     def test_or_operator_with_lists(self):
         org = self.dict_class()
