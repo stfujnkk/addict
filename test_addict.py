@@ -730,6 +730,18 @@ class AbstractTestsClass(object):
         d.inner.unfreeze()
         self.assertEqual(getattr(d.inner, "missing"), {})
         self.assertEqual(getattr(d.inner, "missing", TEST_VAL), {})
+    
+    def test_missing_reference(self):
+        # https://github.com/mewwts/addict/issues/133
+        d = Dict()
+        a1 = d.a
+        a2 = d.a
+        a1.b = 1
+        a1.c = 2
+        self.assertDictEqual(d, {'a': {'b': 1, 'c': 2}})
+        # No matter what order you change the variables in, the final result will not change.
+        a2.d = 3
+        self.assertDictEqual(d, {'a': {'b': 1, 'c': 2, 'd': 3}})
 
 class DictTests(unittest.TestCase, AbstractTestsClass):
     dict_class = Dict

@@ -1,4 +1,5 @@
 import copy
+import weakref
 
 
 class Dict(dict):
@@ -36,6 +37,14 @@ class Dict(dict):
     def __setitem__(self, name, value):
         if name in _STATE_KEYS:
             return
+        """Make sure all values are wrapped by `Dict`
+
+If you remove this code, the value will not be wrapped in the following cases
+>>> d = Dict()
+>>> d.a = {'b': 1}
+>>> print(type(d.a))
+<class 'dict'>
+        """
         if not isinstance(value, Dict):
             value = type(self)._hook(value)
         isFrozen = (hasattr(self, '__frozen') and
@@ -82,7 +91,17 @@ class Dict(dict):
     def __missing__(self, name):
         if object.__getattribute__(self, '__frozen'):
             raise KeyError(name)
-        return self.__class__(__parent=self, __key=name)
+        st: dict = _get_state(self, ['__other_state'])['__other_state']
+        missing_ref = st.get('missing_ref')
+        if missing_ref is None:
+            missing_ref = weakref.WeakValueDictionary()
+            st['missing_ref'] = missing_ref
+
+        if name in missing_ref:
+            return missing_ref[name]
+        ref = self.__class__(__parent=self, __key=name)
+        missing_ref[name] = ref
+        return ref
 
     def __delattr__(self, name):
         del self[name]
@@ -178,7 +197,7 @@ def unwrap(value):
     return value
 
 
-_STATE_KEYS = ['__parent', '__key', '__frozen']
+_STATE_KEYS = ['__parent', '__key', '__frozen', '__other_state']
 
 
 def _get_state(d: Dict, ks=None):
@@ -196,6 +215,9 @@ def _get_state(d: Dict, ks=None):
 def _set_state(d: Dict, state: dict):
     for k in _STATE_KEYS:
         if k not in state:
-            object.__setattr__(d, k, None)
+            if k == '__other_state':
+                object.__setattr__(d, k, {})
+            else:
+                object.__setattr__(d, k, None)
             continue
         object.__setattr__(d, k, state[k])
