@@ -158,4 +158,6 @@ def unwrap(value):
         return to_dict()
     elif isinstance(value, (list, tuple)):
         return type(value)(unwrap(item) for item in value)
+    elif isinstance(value, dict):
+        return {k: unwrap(v) for k, v in value.items()}
     return value

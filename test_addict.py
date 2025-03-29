@@ -219,14 +219,21 @@ class AbstractTestsClass(object):
         self.assertNotIsInstance(regular['a'][0], self.dict_class)
 
     def test_to_dict_with_nested_list(self):
-        nested = Dict({'list': [[{'d': 1}]]})
+        nested = {'list': [[{'d': 1}]]}
         prop = self.dict_class(nested)
         regular = prop.to_dict()
         self.assertDictEqual(regular, prop)
         self.assertDictEqual(regular, nested)
         self.assertIsInstance(regular['list'], list)
         self.assertIsInstance(regular['list'][0], list)
-        self.assertNotIsInstance(['list'][0][0], self.dict_class)
+        self.assertNotIsInstance(regular['list'][0][0], self.dict_class)
+
+    def test_to_dict_with_nested_dict(self):
+        prop = self.dict_class()
+        prop.a = {'a': Dict({'b': 1})}
+        regular = prop.to_dict()
+        self.assertDictEqual(regular, prop)
+        self.assertNotIsInstance(regular['a']['a'], self.dict_class)
 
     def test_update(self):
         old = self.dict_class()
