@@ -77,14 +77,7 @@ class Dict(dict):
     def to_dict(self):
         base = {}
         for key, value in self.items():
-            if isinstance(value, type(self)):
-                base[key] = value.to_dict()
-            elif isinstance(value, (list, tuple)):
-                base[key] = type(value)(
-                    item.to_dict() if isinstance(item, type(self)) else
-                    item for item in value)
-            else:
-                base[key] = value
+            base[key] = unwrap(value)
         return base
 
     def copy(self):
@@ -151,9 +144,18 @@ class Dict(dict):
 
     def freeze(self, shouldFreeze=True):
         object.__setattr__(self, '__frozen', shouldFreeze)
-        for key, val in self.items():
+        for _, val in self.items():
             if isinstance(val, Dict):
                 val.freeze(shouldFreeze)
 
     def unfreeze(self):
         self.freeze(False)
+
+
+def unwrap(value):
+    to_dict = getattr(value, 'to_dict', None)
+    if callable(to_dict):
+        return to_dict()
+    elif isinstance(value, (list, tuple)):
+        return type(value)(unwrap(item) for item in value)
+    return value
