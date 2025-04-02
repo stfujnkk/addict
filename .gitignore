@@ -56,3 +56,5 @@ target/
 
 #OSX Files
 .DS_Store
+venv
+.venv
